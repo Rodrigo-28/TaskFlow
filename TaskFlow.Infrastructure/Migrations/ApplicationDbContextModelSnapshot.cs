@@ -34,12 +34,6 @@ namespace TaskFlow.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<string>("CustomerName")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("EndDate")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -56,18 +50,18 @@ namespace TaskFlow.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("ScheduledTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("StartDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ToEmail")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
+                    b.Property<string>("TaskType")
+                        .IsRequired()
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
 
                     b.HasKey("Id");
 
                     b.ToTable("ScheduledTasks", (string)null);
+
+                    b.HasDiscriminator<string>("TaskType").HasValue("ScheduledTask");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("TaskFlow.Domain.Models.TaskExecutionLog", b =>
@@ -99,6 +93,47 @@ namespace TaskFlow.Infrastructure.Migrations
                     b.HasIndex("ScheduledTaskId");
 
                     b.ToTable("TaskExecutionLogs", (string)null);
+                });
+
+            modelBuilder.Entity("TaskFlow.Domain.Models.DataCleanupTask", b =>
+                {
+                    b.HasBaseType("TaskFlow.Domain.Models.ScheduledTask");
+
+                    b.Property<int>("FileRetentionDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LogRetentionDays")
+                        .HasColumnType("integer");
+
+                    b.HasDiscriminator().HasValue("DataCleanup");
+                });
+
+            modelBuilder.Entity("TaskFlow.Domain.Models.EmailTask", b =>
+                {
+                    b.HasBaseType("TaskFlow.Domain.Models.ScheduledTask");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ToEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasDiscriminator().HasValue("Email");
+                });
+
+            modelBuilder.Entity("TaskFlow.Domain.Models.PdfReportTask", b =>
+                {
+                    b.HasBaseType("TaskFlow.Domain.Models.ScheduledTask");
+
+                    b.HasDiscriminator().HasValue("PdfReport");
                 });
 
             modelBuilder.Entity("TaskFlow.Domain.Models.TaskExecutionLog", b =>

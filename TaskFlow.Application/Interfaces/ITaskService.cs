@@ -5,12 +5,17 @@ namespace TaskFlow.Application.Interfaces
 {
     public interface ITaskService
     {
-        Task<ScheduledTaskDto> CreateTask(CreateTaskDto dto);
-        Task<ScheduledTaskDto?> GetTask(int id);
-        Task<IEnumerable<ScheduledTaskDto>> GetAllTasks();
-        Task<ScheduledTaskDto> UpdateTask(int id, UpdateTaskDto dto);
-        Task<bool> DeleteTask(int id);
-        Task ExecuteTaskAsync(int taskId);
+        Task<EmailTaskDto> CreateEmailTaskAsync(CreateEmailTaskDto dto);
+        Task<PdfReportTaskDto> CreatePdfReportTaskAsync(CreatePdfReportTaskDto dto);
+        Task<DataCleanupTaskDto> CreateDataCleanupTaskAsync(CreateDataCleanupTaskDto dto);
 
+        Task<IEnumerable<ScheduledTaskDto>> GetAllTasksAsync();
+        Task<ScheduledTaskDto> GetTaskByIdAsync(int id);
+
+        Task<EmailTaskDto> UpdateEmailTaskAsync(int id, UpdateEmailTaskDto dto);
+        Task<PdfReportTaskDto> UpdatePdfReportTaskAsync(int id, UpdatePdfReportTaskDto dto);
+        Task UpdateDataCleanupTaskAsync(int id, UpdateDataCleanupTaskDto dto);
+        Task DeleteTaskAsync(int id);
+        Task ExecuteTaskAsync(int id);
     }
 }

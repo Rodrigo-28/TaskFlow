@@ -4,7 +4,7 @@ namespace TaskFlow.Application.Interfaces
 {
     public interface IPdfService
     {
-        Task<byte[]> GenerateRentalPdf(ScheduledTaskDto rentalResponseDto);
+        Task<byte[]> GenerateTasksOverviewPdf(IEnumerable<ScheduledTaskDto> tasks);
 
     }
 }

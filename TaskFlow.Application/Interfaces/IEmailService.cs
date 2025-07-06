@@ -2,6 +2,6 @@
 {
     public interface IEmailService
     {
-        public Task SendConfirmationEmailAsync(string toEmail, string customerName, DateTime startDate, DateTime endDate);
+        public Task SendConfirmationEmailAsync(string toEmail, string customerName, DateTimeOffset startDate, DateTimeOffset endDate);
     }
 }

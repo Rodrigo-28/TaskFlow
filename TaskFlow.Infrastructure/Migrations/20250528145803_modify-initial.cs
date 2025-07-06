@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace TaskFlow.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class initial : Migration
+    public partial class modifyinitial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -19,11 +19,17 @@ namespace TaskFlow.Infrastructure.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Type = table.Column<int>(type: "integer", nullable: false),
                     CronExpression = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    ScheduledTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    ScheduledTime = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
-                    LastRunTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    LastRunTime = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    TaskType = table.Column<string>(type: "character varying(13)", maxLength: 13, nullable: false),
+                    LogRetentionDays = table.Column<int>(type: "integer", nullable: true),
+                    FileRetentionDays = table.Column<int>(type: "integer", nullable: true),
+                    ToEmail = table.Column<string>(type: "text", nullable: true),
+                    CustomerName = table.Column<string>(type: "text", nullable: true),
+                    StartDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    EndDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {

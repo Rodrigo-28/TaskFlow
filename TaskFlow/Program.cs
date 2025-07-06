@@ -1,6 +1,8 @@
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Infrastructure;
 using TaskFlow.Application.Extensions;
+using TaskFlow.Domain.Common;
 using TaskFlow.Infrastructure.Contexts;
 using TaskFlow.Infrastructure.Extensions;
 
@@ -20,6 +22,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 //HangfireServices
 builder.Services.AddHangfireServices(builder.Configuration);
 builder.Services.AddSwaggerGen();
+//servicePdf
+QuestPDF.Settings.License = LicenseType.Community;
+builder.Services
+       .Configure<CleanupOptions>(builder.Configuration.GetSection("Cleanup"))
+       .AddOptions<CleanupOptions>()
+         .BindConfiguration("Cleanup")
+    .ValidateDataAnnotations()
+    .ValidateOnStart(); ;
 
 
 var app = builder.Build();

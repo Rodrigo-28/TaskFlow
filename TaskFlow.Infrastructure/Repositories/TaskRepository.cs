@@ -35,9 +35,20 @@ namespace TaskFlow.Infrastructure.Repositories
             return true;
         }
 
+        public async Task<int> DeleteLogsOlderThanAsync(DateTime cutoff)
+        {
+            var oldLogs = await _context.TaskExecutionLogs
+                                 .Where(log => log.StartTime < cutoff)
+                                 .ToListAsync();
+            _context.TaskExecutionLogs.RemoveRange(oldLogs);
+            return await _context.SaveChangesAsync();
+        }
+
         public async Task<IEnumerable<ScheduledTask>> GetAll()
         {
-            return await _context.ScheduledTasks.ToListAsync();
+            return await _context.ScheduledTasks
+                            .Include(t => t.ExecutionLogs)
+                            .ToListAsync();
         }
 
         public async Task<ScheduledTask?> GetById(int id)

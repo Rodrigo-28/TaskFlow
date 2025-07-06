@@ -3,7 +3,6 @@ using TaskFlow.Application.Dtos.Requests;
 using TaskFlow.Application.Dtos.Response;
 using TaskFlow.Application.Exceptions;
 using TaskFlow.Application.Interfaces;
-using TaskFlow.Domain.Enums;
 using TaskFlow.Domain.Interfaces;
 using TaskFlow.Domain.Models;
 
@@ -14,123 +13,263 @@ namespace TaskFlow.Application.Services
         private readonly ITaskRepository _taskRepository;
         private readonly IJobScheduler _jobScheduler;
         private readonly IEmailService _emailService;
+        private readonly IPdfService _pdfService;
+        private readonly IDataCleanupService _dataCleanupService;
+        private readonly IReportCleanupService _reportCleanupService;
 
-        public TaskService(ITaskRepository taskRepository, IJobScheduler jobScheduler, IEmailService emailService)
+        public TaskService(ITaskRepository taskRepository, IJobScheduler jobScheduler, IEmailService emailService, IPdfService pdfService,
+            IDataCleanupService dataCleanupService, IReportCleanupService reportCleanupService)
         {
             this._taskRepository = taskRepository;
             this._jobScheduler = jobScheduler;
             this._emailService = emailService;
+            this._pdfService = pdfService;
+            this._dataCleanupService = dataCleanupService;
+            this._reportCleanupService = reportCleanupService;
         }
 
-        public async Task<ScheduledTaskDto> CreateTask(CreateTaskDto dto)
+        public async Task<DataCleanupTaskDto> CreateDataCleanupTaskAsync(CreateDataCleanupTaskDto dto)
         {
-            var task = new ScheduledTask()
+
+            if (!string.IsNullOrWhiteSpace(dto.CronExpression)
+            && dto.ScheduledTime.HasValue)
+            {
+                throw new ValidationException(
+                    "No puede especificar CronExpression y ScheduledTime simultáneamente.");
+            }
+
+            if (dto.LogRetentionDays < 1)
+                throw new ValidationException("LogRetentionDays debe ser al menos 1 día.");
+            if (dto.FileRetentionDays < 1)
+                throw new ValidationException("FileRetentionDays debe ser al menos 1 día.");
+            if (dto.ScheduledTime.HasValue && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+                throw new ValidationException("scheduledTime debe estar en el futuro.");
+            var task = new DataCleanupTask
             {
                 Name = dto.Name,
-                Type = dto.Type,
                 CronExpression = dto.CronExpression,
                 ScheduledTime = dto.ScheduledTime?.ToUniversalTime(),
-                ToEmail = dto.ToEmail,
-                CustomerName = dto.CustomerName,
-                StartDate = dto.StartDate?.ToUniversalTime(),
-                EndDate = dto.EndDate?.ToUniversalTime(),
-                IsActive = true
+                IsActive = dto.IsActive,
+                LogRetentionDays = dto.LogRetentionDays,
+                FileRetentionDays = dto.FileRetentionDays
             };
-            if (task.ScheduledTime.HasValue && task.ScheduledTime.Value.UtcDateTime <= DateTime.UtcNow)
-            {
-                throw new ValidationException("scheduledTime must be in the future");
-            }
-            var created = await _taskRepository.Create(task);
-            // Schedule job based on its configuration
+            var createdBase = await _taskRepository.Create(task);
+            if (createdBase is not DataCleanupTask created)
+                throw new InvalidOperationException($"Se esperaba DataCleanupTask, pero EF devolvió {createdBase.GetType().Name}");
+
             ScheduleTask(created);
+            var result = new DataCleanupTaskDto
+            {
+                Id = created.Id,
+                Name = created.Name,
+                CronExpression = created.CronExpression,
+                ScheduledTime = created.ScheduledTime,
+                IsActive = created.IsActive,
+                LastRunTime = created.LastRunTime,
+                LogRetentionDays = created.LogRetentionDays,
+                FileRetentionDays = created.FileRetentionDays
+            };
+            return result;
 
-
-
-
-
-            return ToDto(created);
         }
 
-        public async Task<bool> DeleteTask(int id)
+        public async Task<EmailTaskDto> CreateEmailTaskAsync(CreateEmailTaskDto dto)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.CronExpression)
+              && dto.ScheduledTime.HasValue)
+            {
+                throw new ValidationException(
+                    "No puede especificar CronExpression y ScheduledTime al mismo tiempo.");
+            }
+
+            // 2) Si llega scheduledTime, debe estar en el futuro
+            if (dto.ScheduledTime.HasValue
+                && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new ValidationException(
+                    "ScheduledTime debe ser una fecha futura.");
+            }
+            if (dto.EndDate <= dto.StartDate)
+                throw new ValidationException("EndDate debe ser después de StartDate");
+
+            var task = new EmailTask
+            {
+                Name = dto.Name,
+                CronExpression = dto.CronExpression,
+                ScheduledTime = dto.ScheduledTime?.ToUniversalTime(),
+                IsActive = dto.IsActive,
+                ToEmail = dto.ToEmail,
+                CustomerName = dto.CustomerName,
+                StartDate = dto.StartDate.ToUniversalTime(),
+                EndDate = dto.EndDate.ToUniversalTime(),
+            };
+
+            var createdBase = await _taskRepository.Create(task);
+            if (createdBase is not EmailTask created)
+            {
+                throw new InvalidOperationException(
+                  $"Se esperaba EmailTask, pero EF devolvió {createdBase.GetType().Name}"
+                );
+            }
+            ScheduleTask(created);
+            var dtoResult = new EmailTaskDto
+            {
+                Id = created.Id,
+                Name = created.Name,
+                CronExpression = created.CronExpression,
+                ScheduledTime = created.ScheduledTime,
+                IsActive = created.IsActive,
+                LastRunTime = created.LastRunTime,
+
+                ToEmail = created.ToEmail,
+                CustomerName = created.CustomerName,
+                StartDate = created.StartDate,
+                EndDate = created.EndDate
+            };
+            return dtoResult;
+
+        }
+
+        public async Task<PdfReportTaskDto> CreatePdfReportTaskAsync(CreatePdfReportTaskDto dto)
+        {
+
+            if (!string.IsNullOrWhiteSpace(dto.CronExpression)
+       && dto.ScheduledTime.HasValue)
+            {
+                throw new ValidationException(
+                    "No puede especificar CronExpression y ScheduledTime simultáneamente.");
+            }
+            if (dto.ScheduledTime.HasValue &&
+            dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new ValidationException("scheduledTime debe estar en el futuro.");
+            }
+            var task = new PdfReportTask
+            {
+                Name = dto.Name,
+                CronExpression = dto.CronExpression,
+                ScheduledTime = dto.ScheduledTime?.ToUniversalTime(),
+                IsActive = dto.IsActive
+
+            };
+            var createdBase = await _taskRepository.Create(task);
+
+
+            if (createdBase is not PdfReportTask created)
+            {
+                throw new InvalidOperationException(
+                    $"Se esperaba PdfReportTask, pero EF devolvió {createdBase.GetType().Name}"
+                );
+            }
+            ScheduleTask(created);
+            var result = new PdfReportTaskDto
+            {
+                Id = created.Id,
+                Name = created.Name,
+                CronExpression = created.CronExpression,
+                ScheduledTime = created.ScheduledTime,
+                IsActive = created.IsActive,
+                LastRunTime = created.LastRunTime
+            };
+
+            return result;
+        }
+
+        public async Task DeleteTaskAsync(int id)
         {
             var existing = await _taskRepository.GetById(id);
             if (existing == null)
-            {
                 throw new NotFoundException($"Task with ID {id} not found")
                 {
                     ErrorCode = "004"
                 };
-            }
-            //remove any recurring schedule
             _jobScheduler.RemoveRecurringTask(id);
-            return await _taskRepository.Delete(existing);
-
+            await _taskRepository.Delete(existing);
         }
 
-        public async Task ExecuteTaskAsync(int taskId)
+        public async Task ExecuteTaskAsync(int id)
         {
-            var start = DateTime.UtcNow;
-            var task = await _taskRepository.GetById(taskId);
+            var startTime = DateTime.UtcNow;
 
+            var baseTask = await _taskRepository.GetById(id);
+            if (baseTask == null)
+            {
+                throw new NotFoundException($"Task with ID {id} not found") { ErrorCode = "004" };
+            }
             try
             {
-                switch (task.Type)
+                switch (baseTask)
                 {
-                    case TaskType.Email:
+                    case EmailTask emailTask:
                         await _emailService.SendConfirmationEmailAsync(
-                            task.ToEmail,
-                            task.CustomerName,
-                            task.StartDate!.Value,
-                            task.EndDate!.Value
+                                           emailTask.ToEmail,
+                                           emailTask.CustomerName,
+                                           emailTask.StartDate,
+                                           emailTask.EndDate
 
+                                       );
+                        Console.WriteLine($"email generado,{emailTask.StartDate},{emailTask.EndDate}");
+                        break;
 
-                            );
+                    case PdfReportTask pdfReportTask:
+                        var allTask = (await GetAllTasksAsync()).ToList();
+                        var pdfBytes = await _pdfService.GenerateTasksOverviewPdf(allTask);
+                        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+                        var fileName = $"TasksOverview_{timestamp}.pdf";
+                        var reportsDir = Path.Combine(Directory.GetCurrentDirectory(), "Reports");
+                        Directory.CreateDirectory(reportsDir);
+                        var fullPath = Path.Combine(reportsDir, fileName);
+                        await File.WriteAllBytesAsync(fullPath, pdfBytes);
+                        Console.WriteLine($"[PDFReport] Generated overview at {fullPath}");
                         break;
-                    case TaskType.PDFReport:
-                        Console.WriteLine("Envio de pdf");
-                        break;
-                    case TaskType.DataCleanup:
-                        Console.WriteLine("Limpieza de datos");
+                    case DataCleanupTask cleanupTask:
+                        await _dataCleanupService.CleanOldExecutionLogsAsync(null);
+                        await _reportCleanupService.CleanOldReportFilesAsync(null);
+                        Console.WriteLine($"limpieza generada");
                         break;
                     default:
-                        throw new NotSupportedException($"Task type '{task.Type}' is not supported.");
+                        throw new NotSupportedException($"Task type '{baseTask.GetType().Name}' is not supported.");
                 }
-                task.LastRunTime = DateTime.UtcNow;
-                await _taskRepository.Update(task);
 
-                //log success
-                await _taskRepository.AddExecutionLogAsync(new TaskExecutionLog()
+                baseTask.LastRunTime = DateTime.UtcNow;
+                await _taskRepository.Update(baseTask);
+                await _taskRepository.AddExecutionLogAsync(new TaskExecutionLog
                 {
-                    ScheduledTaskId = taskId,
-                    StartTime = start,
+                    ScheduledTaskId = id,
+                    StartTime = startTime,
                     EndTime = DateTime.UtcNow,
                     Success = true
                 });
-
             }
             catch (Exception ex)
             {
-                //Log failure
+
                 await _taskRepository.AddExecutionLogAsync(new TaskExecutionLog
                 {
-                    ScheduledTaskId = taskId,
-                    StartTime = start,
+                    ScheduledTaskId = id,
+                    StartTime = startTime,
                     EndTime = DateTime.UtcNow,
                     Success = false,
                     ErrorMessage = ex.Message
                 });
+
+
                 throw;
+
+
             }
 
         }
 
-        public async Task<IEnumerable<ScheduledTaskDto>> GetAllTasks()
+        public async Task<IEnumerable<ScheduledTaskDto>> GetAllTasksAsync()
         {
             var tasks = await _taskRepository.GetAll();
-            return tasks.Select(ToDto);
+
+            return tasks.Select(task => ToDto(task)).ToList();
+
         }
 
-        public async Task<ScheduledTaskDto?> GetTask(int id)
+        public async Task<ScheduledTaskDto> GetTaskByIdAsync(int id)
         {
             var task = await _taskRepository.GetById(id);
             if (task == null)
@@ -140,42 +279,135 @@ namespace TaskFlow.Application.Services
                     ErrorCode = "004"
                 };
             }
-            return ToDto(task);
+            var dto = ToDto(task);
 
+            return dto;
         }
 
-        public async Task<ScheduledTaskDto> UpdateTask(int id, UpdateTaskDto dto)
+        public async Task UpdateDataCleanupTaskAsync(int id, UpdateDataCleanupTaskDto dto)
         {
-            var existing = await _taskRepository.GetById(id);
-            if (existing == null)
-            {
-                throw new NotFoundException($"Task with ID {id} not found")
+            var baseTask = await _taskRepository.GetById(id);
+            if (baseTask is not DataCleanupTask existing)
+                throw new NotFoundException($"DataCleanupTask with ID {id} not found")
                 {
                     ErrorCode = "004"
                 };
-            }
+            if (dto.LogRetentionDays < 1)
+                throw new ValidationException("LogRetentionDays debe ser al menos 1 día.");
+            if (dto.FileRetentionDays < 1)
+                throw new ValidationException("FileRetentionDays debe ser al menos 1 día.");
+            if (dto.ScheduledTime.HasValue &&
+                dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+                throw new ValidationException("ScheduledTime debe estar en el futuro.");
             existing.Name = dto.Name ?? existing.Name;
-            if (dto.Type.HasValue)
-            {
-                existing.Type = dto.Type.Value;
-            };
-            if (dto.CronExpression != null)
-                existing.CronExpression = dto.CronExpression;
+            existing.CronExpression = dto.CronExpression ?? existing.CronExpression;
+            existing.ScheduledTime = dto.ScheduledTime?.ToUniversalTime();
+            existing.IsActive = dto.IsActive ?? existing.IsActive;
+            existing.LogRetentionDays = dto.LogRetentionDays ?? existing.LogRetentionDays;
+            existing.FileRetentionDays = dto.FileRetentionDays ?? existing.FileRetentionDays;
 
-            if (dto.ScheduledTime.HasValue)
-                existing.ScheduledTime = dto.ScheduledTime.Value.ToUniversalTime();
-            if (dto.IsActive.HasValue)
-                existing.IsActive = dto.IsActive.Value;
-            if (existing.ScheduledTime.HasValue && existing.ScheduledTime.Value.UtcDateTime <= DateTime.UtcNow)
-            {
-                throw new ValidationException("scheduledTime must be in the future");
-            }
             await _taskRepository.Update(existing);
-            // Reset schedule
+
             _jobScheduler.RemoveRecurringTask(id);
             ScheduleTask(existing);
-            return ToDto(existing);
+        }
 
+        public async Task<EmailTaskDto> UpdateEmailTaskAsync(int id, UpdateEmailTaskDto dto)
+        {
+            if (!string.IsNullOrWhiteSpace(dto.CronExpression)
+       && dto.ScheduledTime.HasValue)
+                throw new ValidationException("No puede especificar CronExpression y ScheduledTime juntos.");
+            var baseTask = await _taskRepository.GetById(id);
+            if (dto.ScheduledTime.HasValue
+       && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+                throw new ValidationException("ScheduledTime debe ser una fecha futura.");
+
+            if (baseTask is not EmailTask existing)
+                throw new NotFoundException($"Email task with ID {id} not found")
+                {
+                    ErrorCode = "004"
+                };
+            if (dto.EndDate <= dto.StartDate)
+                throw new ValidationException("EndDate must be later than StartDate.");
+
+            if (dto.ScheduledTime.HasValue
+                && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new ValidationException("scheduledTime must be in the future.");
+            }
+            existing.Name = dto.Name ?? existing.Name;
+            existing.CronExpression = dto.CronExpression ?? existing.CronExpression;
+            existing.ScheduledTime = dto.ScheduledTime?.ToUniversalTime();
+            existing.IsActive = dto.IsActive ?? existing.IsActive;
+
+            existing.ToEmail = dto.ToEmail ?? existing.ToEmail;
+            existing.CustomerName = dto.CustomerName ?? existing.CustomerName;
+            if (dto.StartDate.HasValue)
+                existing.StartDate = dto.StartDate.Value.ToUniversalTime();
+
+            if (dto.EndDate.HasValue)
+                existing.EndDate = dto.EndDate.Value.ToUniversalTime();
+
+            await _taskRepository.Update(existing);
+            _jobScheduler.RemoveRecurringTask(id);
+            ScheduleTask(existing);
+            return new EmailTaskDto
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                CronExpression = existing.CronExpression,
+                ScheduledTime = existing.ScheduledTime,
+                IsActive = existing.IsActive,
+                LastRunTime = existing.LastRunTime,
+                ToEmail = existing.ToEmail,
+                CustomerName = existing.CustomerName,
+                StartDate = existing.StartDate,
+                EndDate = existing.EndDate
+            };
+
+        }
+
+        public async Task<PdfReportTaskDto> UpdatePdfReportTaskAsync(int id, UpdatePdfReportTaskDto dto)
+        {
+            var baseTask = await _taskRepository.GetById(id);
+            if (baseTask is not PdfReportTask existing)
+                throw new NotFoundException($"PDF report task with ID {id} not found")
+                {
+                    ErrorCode = "004"
+                };
+            if (!string.IsNullOrWhiteSpace(dto.CronExpression)
+             && dto.ScheduledTime.HasValue)
+            {
+                throw new ValidationException(
+                    "No puedes establecer a la vez CronExpression y ScheduledTime."
+                );
+            }
+            // 3) Validar formato de la cron (lanza excepción si es inválida)
+
+
+            if (dto.ScheduledTime.HasValue
+                && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
+            {
+                throw new ValidationException("scheduledTime debe estar en el futuro.");
+            }
+            existing.Name = dto.Name ?? existing.Name;
+            existing.CronExpression = dto.CronExpression ?? existing.CronExpression;
+            existing.ScheduledTime = dto.ScheduledTime?.ToUniversalTime()
+                                      ?? existing.ScheduledTime;
+            existing.IsActive = dto.IsActive ?? existing.IsActive;
+
+            await _taskRepository.Update(existing);
+            _jobScheduler.RemoveRecurringTask(id);
+            ScheduleTask(existing);
+            return new PdfReportTaskDto
+            {
+                Id = existing.Id,
+                Name = existing.Name,
+                CronExpression = existing.CronExpression,
+                ScheduledTime = existing.ScheduledTime,
+                IsActive = existing.IsActive,
+                LastRunTime = existing.LastRunTime
+            };
         }
 
         private void ScheduleTask(ScheduledTask task)
@@ -201,7 +433,7 @@ namespace TaskFlow.Application.Services
             {
                 Id = task.Id,
                 Name = task.Name,
-                Type = task.Type,
+                //Type = task.Type,
                 CronExpression = task.CronExpression,
                 ScheduledTime = task.ScheduledTime,
                 IsActive = task.IsActive,

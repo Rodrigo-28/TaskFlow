@@ -21,6 +21,12 @@ namespace TaskFlow.Infrastructure.Contexts
                 entity.Property(e => e.CronExpression).HasMaxLength(100);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
             });
+            modelBuilder.Entity<ScheduledTask>()
+      .ToTable("ScheduledTasks")
+      .HasDiscriminator<string>("TaskType")
+      .HasValue<EmailTask>("Email")
+      .HasValue<PdfReportTask>("PdfReport")
+      .HasValue<DataCleanupTask>("DataCleanup");
             modelBuilder.Entity<TaskExecutionLog>(entity =>
             {
                 entity.ToTable("TaskExecutionLogs");

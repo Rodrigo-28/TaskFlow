@@ -15,8 +15,9 @@ namespace TaskFlow.Application.Services
             this._httpClient = httpClientFactory.CreateClient("Mailgun");
             this._configuration = configuration;
         }
-        public async Task SendConfirmationEmailAsync(string toEmail, string customerName, DateTime startDate, DateTime endDate)
+        public async Task SendConfirmationEmailAsync(string toEmail, string customerName, DateTimeOffset startDate, DateTimeOffset endDate)
         {
+
             var formattedStarDate = startDate.ToLocalTime().ToString("dd/MM/yyyy");
             var formattedEndDate = endDate.ToLocalTime().ToString("dd/MM/yyyy");
 
@@ -41,6 +42,7 @@ namespace TaskFlow.Application.Services
             {
                 using var form = new MultipartFormDataContent();
                 var domain = _configuration["Mailgun:Domain"];
+                AddFormParam(form, "from", $"TaskFlow <postmaster@{domain}>");
                 AddFormParam(form, "to", toEmail);
                 AddFormParam(form, "subject", subject);
                 AddFormParam(form, "text", textContent);

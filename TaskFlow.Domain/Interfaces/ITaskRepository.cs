@@ -11,5 +11,6 @@ namespace TaskFlow.Domain.Interfaces
         Task<bool> Delete(ScheduledTask task);
         Task<IEnumerable<TaskExecutionLog>> GetExecutionLogsAsync(int taskId);
         Task<TaskExecutionLog> AddExecutionLogAsync(TaskExecutionLog log);
+        Task<int> DeleteLogsOlderThanAsync(DateTime cutoff);
     }
 }

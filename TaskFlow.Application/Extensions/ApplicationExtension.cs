@@ -13,6 +13,11 @@ namespace TaskFlow.Application.Extensions
 
                 services.AddTransient<ITaskService, TaskService>();
                 services.AddTransient<IEmailService, EmailService>();
+                services.AddSingleton<IPdfService, PdfService>();
+
+                services.AddScoped<IDataCleanupService, DataCleanupService>();
+                services.AddScoped<IReportCleanupService, ReportCleanupService>();
+
 
 
 
