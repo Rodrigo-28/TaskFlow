@@ -35,15 +35,15 @@ namespace TaskFlow.Application.Services
             && dto.ScheduledTime.HasValue)
             {
                 throw new ValidationException(
-                    "No puede especificar CronExpression y ScheduledTime simultáneamente.");
+                    "You cannot specify CronExpression and ScheduledTime simultaneously..");
             }
 
             if (dto.LogRetentionDays < 1)
-                throw new ValidationException("LogRetentionDays debe ser al menos 1 día.");
+                throw new ValidationException("LogRetentionDays must be at least 1 day.");
             if (dto.FileRetentionDays < 1)
-                throw new ValidationException("FileRetentionDays debe ser al menos 1 día.");
+                throw new ValidationException("FileRetentionDays must be at least 1 day.");
             if (dto.ScheduledTime.HasValue && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
-                throw new ValidationException("scheduledTime debe estar en el futuro.");
+                throw new ValidationException("scheduledTime must be in the future.");
             var task = new DataCleanupTask
             {
                 Name = dto.Name,
@@ -55,7 +55,7 @@ namespace TaskFlow.Application.Services
             };
             var createdBase = await _taskRepository.Create(task);
             if (createdBase is not DataCleanupTask created)
-                throw new InvalidOperationException($"Se esperaba DataCleanupTask, pero EF devolvió {createdBase.GetType().Name}");
+                throw new InvalidOperationException($"DataCleanupTask was expected, but EF returned {createdBase.GetType().Name}");
 
             ScheduleTask(created);
             var result = new DataCleanupTaskDto
@@ -79,7 +79,7 @@ namespace TaskFlow.Application.Services
               && dto.ScheduledTime.HasValue)
             {
                 throw new ValidationException(
-                    "No puede especificar CronExpression y ScheduledTime al mismo tiempo.");
+                    "You cannot specify CronExpression and ScheduledTime at the same time.");
             }
 
             // 2) Si llega scheduledTime, debe estar en el futuro
@@ -87,10 +87,10 @@ namespace TaskFlow.Application.Services
                 && dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
             {
                 throw new ValidationException(
-                    "ScheduledTime debe ser una fecha futura.");
+                    "ScheduledTime must be a future date.");
             }
             if (dto.EndDate <= dto.StartDate)
-                throw new ValidationException("EndDate debe ser después de StartDate");
+                throw new ValidationException("EndDate must be after StartDate");
 
             var task = new EmailTask
             {
@@ -108,7 +108,7 @@ namespace TaskFlow.Application.Services
             if (createdBase is not EmailTask created)
             {
                 throw new InvalidOperationException(
-                  $"Se esperaba EmailTask, pero EF devolvió {createdBase.GetType().Name}"
+                  $" Expected EmailTask, but EF returned {createdBase.GetType().Name}"
                 );
             }
             ScheduleTask(created);
@@ -137,12 +137,12 @@ namespace TaskFlow.Application.Services
        && dto.ScheduledTime.HasValue)
             {
                 throw new ValidationException(
-                    "No puede especificar CronExpression y ScheduledTime simultáneamente.");
+                    "You cannot specify CronExpression and ScheduledTime simultaneously..");
             }
             if (dto.ScheduledTime.HasValue &&
             dto.ScheduledTime.Value.ToUniversalTime() <= DateTime.UtcNow)
             {
-                throw new ValidationException("scheduledTime debe estar en el futuro.");
+                throw new ValidationException("scheduledTime must be in the future.");
             }
             var task = new PdfReportTask
             {
@@ -158,7 +158,7 @@ namespace TaskFlow.Application.Services
             if (createdBase is not PdfReportTask created)
             {
                 throw new InvalidOperationException(
-                    $"Se esperaba PdfReportTask, pero EF devolvió {createdBase.GetType().Name}"
+                    $"Expected PdfReportTask, but EF returned {createdBase.GetType().Name}"
                 );
             }
             ScheduleTask(created);

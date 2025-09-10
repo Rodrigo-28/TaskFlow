@@ -23,12 +23,12 @@ namespace TaskFlow.Application.Services
         {
             var retention = days ?? _opts.DefaultFileRetentionDays;
             if (retention < 1)
-                throw new ValidationException("Retention days debe ser al menos 1.");
+                throw new ValidationException("Retention days must be at least 1.");
 
             var cutoff = DateTime.UtcNow.AddDays(-retention);
 
             if (!Directory.Exists(_opts.ReportsFolder))
-                throw new DirectoryNotFoundException($"Carpeta de reportes no encontrada: {_opts.ReportsFolder}");
+                throw new DirectoryNotFoundException($"Reports folder not found: {_opts.ReportsFolder}");
 
 
             int deletedCount = await _reportFileRepository.DeleteFilesOlderThanAsync(_opts.ReportsFolder, cutoff);

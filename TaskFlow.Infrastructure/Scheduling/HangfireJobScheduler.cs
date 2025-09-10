@@ -3,10 +3,7 @@ using TaskFlow.Application.Interfaces;
 
 namespace TaskFlow.Infrastructure.Scheduling
 {
-    //La capa Domain solo debería contener tus entidades y, a lo sumo,
-    //interfaces muy genéricas de repositorio(ITaskRepository). No pongas en Domain
-    //el IJobScheduler, porque ese contrato es parte de tu lógica de aplicación,
-    //no del modelo puro de negocio.
+
 
 
     public class HangfireJobScheduler : IJobScheduler

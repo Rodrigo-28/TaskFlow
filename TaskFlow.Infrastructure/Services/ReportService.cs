@@ -4,7 +4,7 @@ using TaskFlow.Application.Interfaces;
 
 namespace TaskFlow.Infrastructure.Services
 {
-    //Infrastructure sí referencia a Application(para los contratos de servicio) y a Domain(para las entidades).
+
 
 
     public class ReportService : IReportService

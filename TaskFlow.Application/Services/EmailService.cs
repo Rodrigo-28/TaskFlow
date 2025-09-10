@@ -27,7 +27,7 @@ namespace TaskFlow.Application.Services
             <body>
                 <h1>¡task confirmada!</h1>
                 <p>Estimado {customerName},</p>
-                <p>Tu auto estará disponible desde el <strong>{formattedStarDate}</strong> hasta el <strong>{formattedEndDate}</strong>.</p>
+                <p>Tu tarea estará disponible desde el <strong>{formattedStarDate}</strong> hasta el <strong>{formattedEndDate}</strong>.</p>
             </body>
         </html>
              ";
